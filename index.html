@@ -131,7 +131,7 @@
 </nav>
 
 <div id="studentModal" class="modal"><div class="modal-content"><h3>Nuovo Alunno</h3><input type="text" id="newStudentName" placeholder="Nome"><input type="text" id="newStudentSchool" placeholder="Scuola"><div style="display:flex; gap:10px;"><button class="btn btn-outline" style="flex:1" onclick="hideModal('studentModal')">Annulla</button><button class="btn" style="flex:1" onclick="saveStudent()">Salva</button></div></div></div>
-<div id="hourModal" class="modal"><div class="modal-content"><h3>Nuova Lezione</h3><select id="hourStudentSelect"></select><input type="date" id="hourDate"><div style="display:flex; gap:10px"><input type="time" id="hourStart" value="15:00"><input type="time" id="hourEnd" value="16:00"></div><button class="btn" style="width:100%" onclick="saveHours()">Salva</button></div></div>
+<div id="hourModal" class="modal"><div class="modal-content"><h3>Nuova Lezione</h3><select id="hourStudentSelect"></select><input type="date" id="hourDate"><div style="display:flex; gap:10px"><input type="time" id="hourStart" value="08:00"><input type="time" id="hourEnd" value="10:00"></div><button class="btn" style="width:100%" onclick="saveHours()">Salva</button></div></div>
 <div id="dayDetailModal" class="modal"><div class="modal-content"><span onclick="hideModal('dayDetailModal')" style="float:right; cursor:pointer">&times;</span><h3 id="detailDateTitle"></h3><div id="dayLessonsList"></div><button class="btn" style="width:100%; margin-top:15px" onclick="openAddSessionFromCal()">+ Aggiungi</button></div></div>
 
 <script>
