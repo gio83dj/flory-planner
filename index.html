@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#d63384"> 
-    <title>Flory Planner Pro v11</title>
+    <title>Flory Planner v12</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
@@ -42,10 +42,24 @@
         .backup-controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
         .btn-backup { background: #f0f0f0; color: #666; font-size: 0.75rem; padding: 8px 12px; border-radius: 8px; border: none; cursor: pointer; }
 
+        /* CALENDARIO MIGLIORATO */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-        .cal-cell { min-height: 85px; border: 1px solid #f0f0f0; border-radius: 12px; padding: 5px; background: #fafafa; cursor: pointer; overflow: hidden; }
+        .cal-cell { min-height: 95px; border: 1px solid #f0f0f0; border-radius: 12px; padding: 5px; background: #fafafa; cursor: pointer; overflow: hidden; }
         .cal-cell.today { border: 2px solid var(--primary); background: white; }
-        .cal-lesson-tag { font-size: 0.6rem; background: var(--primary-light); color: var(--primary-dark); margin-bottom: 2px; padding: 1px 4px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: 2px solid var(--primary); }
+        
+        .cal-lesson-tag { 
+            font-size: 0.58rem; /* Leggermente più piccolo per far stare tutto */
+            background: var(--primary-light); 
+            color: var(--primary-dark); 
+            margin-bottom: 3px; 
+            padding: 2px 4px; 
+            border-radius: 4px; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            border-left: 3px solid var(--primary);
+            line-height: 1.2;
+        }
 
         .nav-bottom { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); display: flex; justify-content: space-around; padding: 12px 0; box-shadow: 0 -5px 20px rgba(0,0,0,0.05); z-index: 1000; }
         .nav-item { text-align: center; color: #bbb; font-size: 0.75rem; flex: 1; cursor: pointer; }
@@ -74,7 +88,7 @@
     <div class="global-stats" onclick="switchTab('calendar')">
         <div>
             <h2 id="displayMonthName" style="margin:0; font-size: 1.2rem;">Caricamento...</h2>
-            <small style="opacity: 0.8;">Tocca per il calendario</small>
+            <small style="opacity: 0.8;">Resoconto mensile</small>
         </div>
         <div style="text-align: right;">
             <div id="displayTotalHours" style="font-size: 2rem; font-weight: 900;">0 h</div>
@@ -92,7 +106,7 @@
 
     <section id="secAgenda" class="hidden">
         <div class="student-card" style="max-width: 500px; margin: 0 auto; border-top: none;">
-            <h3>Agenda</h3>
+            <h3>Agenda Giornaliera</h3>
             <input type="date" id="agendaDateSelector" onchange="renderAgenda()">
             <div id="agendaList"></div>
         </div>
@@ -121,7 +135,7 @@
 <div id="dayDetailModal" class="modal"><div class="modal-content"><span onclick="hideModal('dayDetailModal')" style="float:right; cursor:pointer">&times;</span><h3 id="detailDateTitle"></h3><div id="dayLessonsList"></div><button class="btn" style="width:100%; margin-top:15px" onclick="openAddSessionFromCal()">+ Aggiungi</button></div></div>
 
 <script>
-    let students = JSON.parse(localStorage.getItem('pink_v11')) || [];
+    let students = JSON.parse(localStorage.getItem('pink_v11')) || []; // Mantengo v11 per non perdere i dati appena inseriti
     let viewDate = new Date();
     let selectedCalDate = null;
     const monthNames = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
@@ -129,31 +143,19 @@
     function init() {
         document.getElementById('agendaDateSelector').valueAsDate = new Date();
         refreshAll();
-        // Carica il calendario "dietro le quinte" all'avvio
         renderGlobalCalendar();
     }
 
     function switchTab(tab) {
-        // 1. Nascondi tutto
         document.getElementById('secDashboard').classList.add('hidden');
         document.getElementById('secAgenda').classList.add('hidden');
         document.getElementById('secCalendar').classList.add('hidden');
-        
-        // 2. Mostra la sezione scelta
         const targetId = 'sec' + tab.charAt(0).toUpperCase() + tab.slice(1);
         document.getElementById(targetId).classList.remove('hidden');
-        
-        // 3. Aggiorna grafica navigazione
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
         document.getElementById('nav' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-
-        // 4. FIX: Forza il rendering se è il calendario o l'agenda
-        if(tab === 'calendar') {
-            setTimeout(() => { renderGlobalCalendar(); }, 10);
-        }
-        if(tab === 'agenda') {
-            renderAgenda();
-        }
+        if(tab === 'calendar') setTimeout(() => { renderGlobalCalendar(); }, 10);
+        if(tab === 'agenda') renderAgenda();
         refreshAll();
     }
 
@@ -202,19 +204,41 @@
         ["L", "M", "M", "G", "V", "S", "D"].forEach(d => grid.innerHTML += `<div style="text-align:center; font-weight:bold; font-size:0.7rem; color:var(--secondary)">${d}</div>`);
         const startOffset = (new Date(y, m, 1).getDay() || 7) - 1;
         for(let i=0; i<startOffset; i++) grid.innerHTML += `<div></div>`;
+        
         for(let d=1; d<=new Date(y, m + 1, 0).getDate(); d++) {
             const dateStr = `${y}-${String(m+1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             let daily = [];
-            students.forEach(st => st.sessions.forEach(se => { if(se.date === dateStr) daily.push({name: st.name, ...se}); }));
+            
+            // RACCOLTA DATI PER IL GIORNO
+            students.forEach(st => st.sessions.forEach(se => { 
+                if(se.date === dateStr) {
+                    daily.push({
+                        name: st.name, 
+                        school: st.school || '', 
+                        ...se
+                    });
+                }
+            }));
+            
             daily.sort((a,b)=>a.start.localeCompare(b.start));
+            
             const cell = document.createElement('div');
             cell.className = `cal-cell ${new Date().toISOString().split('T')[0] === dateStr ? 'today' : ''}`;
             cell.onclick = () => openDayDetail(dateStr, daily);
-            cell.innerHTML = `<div style="font-weight:bold; font-size:0.75rem">${d}</div>` + daily.map(l => `<div class="cal-lesson-tag">${l.start} ${l.name}</div>`).join('');
+            
+            // LOGICA DI VISUALIZZAZIONE RANGE + SCUOLA
+            let htmlContent = `<div style="font-weight:bold; font-size:0.75rem">${d}</div>`;
+            daily.forEach(l => {
+                const schoolTag = l.school ? ` (${l.school})` : '';
+                htmlContent += `<div class="cal-lesson-tag">${l.start}-${l.end} ${l.name}${schoolTag}</div>`;
+            });
+            
+            cell.innerHTML = htmlContent;
             grid.appendChild(cell);
         }
     }
 
+    // Altre funzioni di gestione (Invariate)
     function changeMonth(dir) { viewDate.setMonth(viewDate.getMonth() + dir); renderGlobalCalendar(); refreshAll(); }
     function saveStudent() { const n = document.getElementById('newStudentName'), s = document.getElementById('newStudentSchool'); if(!n.value) return; students.push({ id: Date.now(), name: n.value, school: s.value, sessions: [] }); n.value=''; s.value=''; hideModal('studentModal'); refreshAll(); }
     function saveHours() { const id = parseInt(document.getElementById('hourStudentSelect').value), d = document.getElementById('hourDate').value, s = document.getElementById('hourStart').value, e = document.getElementById('hourEnd').value; const dur = (new Date(`2000-01-01T${e}`) - new Date(`2000-01-01T${s}`)) / 3600000; if(dur <= 0) return alert("Orario non valido"); students.find(x => x.id === id).sessions.push({ id: Date.now(), date: d, start: s, end: e, duration: dur }); hideModal('hourModal'); refreshAll(); renderGlobalCalendar(); }
@@ -222,9 +246,9 @@
     function showModal(id, stId = null) { document.getElementById(id).style.display = 'flex'; if(id === 'hourModal') { document.getElementById('hourStudentSelect').innerHTML = students.map(s => `<option value="${s.id}" ${s.id==stId?'selected':''}>${s.name}</option>`).join(''); document.getElementById('hourDate').value = selectedCalDate || new Date().toISOString().split('T')[0]; } }
     function hideModal(id) { document.getElementById(id).style.display = 'none'; }
     function openAddSessionFromCal() { hideModal('dayDetailModal'); showModal('hourModal'); }
-    function openDayDetail(date, lessons) { selectedCalDate = date; document.getElementById('detailDateTitle').innerText = new Date(date).toLocaleDateString('it-IT', { day:'numeric', month:'long' }); const list = document.getElementById('dayLessonsList'); list.innerHTML = lessons.length ? lessons.map(l => `<div style="padding:8px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center"><span><b>${l.start}</b> ${l.name}</span><button class="btn-danger" onclick="deleteSession(${l.id})"><i class="fas fa-trash"></i></button></div>`).join('') : "Nessuna lezione"; showModal('dayDetailModal'); }
+    function openDayDetail(date, lessons) { selectedCalDate = date; document.getElementById('detailDateTitle').innerText = new Date(date).toLocaleDateString('it-IT', { day:'numeric', month:'long' }); const list = document.getElementById('dayLessonsList'); list.innerHTML = lessons.length ? lessons.map(l => `<div style="padding:8px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center"><span><b>${l.start}-${l.end}</b> ${l.name}</span><button class="btn-danger" onclick="deleteSession(${l.id})"><i class="fas fa-trash"></i></button></div>`).join('') : "Nessuna lezione"; showModal('dayDetailModal'); }
     function deleteSession(id) { if(confirm("Eliminare?")) { students.forEach(s => s.sessions = s.sessions.filter(x => x.id !== id)); hideModal('dayDetailModal'); refreshAll(); renderGlobalCalendar(); } }
-    function renderAgenda() { const list = document.getElementById('agendaList'), d = document.getElementById('agendaDateSelector').value; let f = []; students.forEach(st => st.sessions.forEach(se => { if(se.date === d) f.push({...se, name: st.name}); })); list.innerHTML = f.length ? f.sort((a,b)=>a.start.localeCompare(b.start)).map(x => `<div style="padding:10px 0; border-bottom:1px solid #eee"><b>${x.start}</b> ${x.name}</div>`).join('') : "Libero"; }
+    function renderAgenda() { const list = document.getElementById('agendaList'), d = document.getElementById('agendaDateSelector').value; let f = []; students.forEach(st => st.sessions.forEach(se => { if(se.date === d) f.push({...se, name: st.name}); })); list.innerHTML = f.length ? f.sort((a,b)=>a.start.localeCompare(b.start)).map(x => `<div style="padding:10px 0; border-bottom:1px solid #eee"><b>${x.start}-${x.end}</b> ${x.name}</div>`).join('') : "Libero"; }
     function exportData() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(students)); const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", "backup_planner.json"); dl.click(); }
     function importData(e) { const reader = new FileReader(); reader.onload = (ev) => { if(confirm("Sovrascrivere?")) { students = JSON.parse(ev.target.result); refreshAll(); renderGlobalCalendar(); } }; reader.readAsText(e.target.files[0]); }
 
