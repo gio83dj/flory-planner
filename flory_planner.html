@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#d63384"> 
+    <title>Flory Planner</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #d63384; 
+            --primary-dark: #b8266d;
+            --primary-light: #fce4ec;
+            --secondary: #f06292;
+            --bg: #fffcfd;
+            --text: #333;
+            --shadow: 0 8px 30px rgba(214, 51, 132, 0.1);
+        }
+
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding-bottom: 95px; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 15px; }
+
+        header {
+            background: white; padding: 15px 20px; box-shadow: var(--shadow);
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 100;
+        }
+
+        .global-stats {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white; padding: 20px; border-radius: 20px; margin-bottom: 25px;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: var(--shadow); cursor: pointer;
+        }
+
+        .student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+        .student-card { 
+            background: white; border-radius: 20px; padding: 18px; box-shadow: var(--shadow); 
+            border-top: 5px solid var(--primary); display: flex; flex-direction: column; justify-content: space-between;
+        }
+
+        .backup-controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .btn-backup { background: #f0f0f0; color: #666; font-size: 0.75rem; padding: 8px 12px; border-radius: 8px; border: none; cursor: pointer; }
+
+        /* CALENDARIO MIGLIORATO */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .cal-cell { min-height: 95px; border: 1px solid #f0f0f0; border-radius: 12px; padding: 5px; background: #fafafa; cursor: pointer; overflow: hidden; }
+        .cal-cell.today { border: 2px solid var(--primary); background: white; }
+        
+        .cal-lesson-tag { 
+            font-size: 0.58rem; /* Leggermente più piccolo per far stare tutto */
+            background: var(--primary-light); 
+            color: var(--primary-dark); 
+            margin-bottom: 3px; 
+            padding: 2px 4px; 
+            border-radius: 4px; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            border-left: 3px solid var(--primary);
+            line-height: 1.2;
+        }
+
+        .nav-bottom { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); display: flex; justify-content: space-around; padding: 12px 0; box-shadow: 0 -5px 20px rgba(0,0,0,0.05); z-index: 1000; }
+        .nav-item { text-align: center; color: #bbb; font-size: 0.75rem; flex: 1; cursor: pointer; }
+        .nav-item.active { color: var(--primary); font-weight: bold; }
+        .nav-item i { font-size: 1.4rem; display: block; margin-bottom: 4px; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); justify-content: center; align-items: center; z-index: 2000; }
+        .modal-content { background: white; padding: 25px; border-radius: 25px; width: 90%; max-width: 450px; position: relative; }
+        
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border-radius: 12px; border: 1px solid #eee; background: #f9f9f9; box-sizing: border-box; font-size: 1rem; }
+        .btn { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; justify-content: center; }
+        .btn-outline { background: #eee; color: #666; }
+        .btn-danger { background: none; color: #ff4d4d; border: none; cursor: pointer; }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1 style="color: var(--primary); margin:0; font-size: 1.4rem;"><i class="fas fa-heart"></i> Flory Planner</h1>
+    <button class="btn" onclick="showModal('studentModal')"><i class="fas fa-user-plus"></i></button>
+</header>
+
+<div class="container">
+    <div class="global-stats" onclick="switchTab('calendar')">
+        <div>
+            <h2 id="displayMonthName" style="margin:0; font-size: 1.2rem;">Caricamento...</h2>
+            <small style="opacity: 0.8;">Resoconto mensile</small>
+        </div>
+        <div style="text-align: right;">
+            <div id="displayTotalHours" style="font-size: 2rem; font-weight: 900;">0 h</div>
+        </div>
+    </div>
+
+    <section id="secDashboard">
+        <div class="backup-controls">
+            <button class="btn-backup" onclick="exportData()"><i class="fas fa-download"></i> Esporta</button>
+            <button class="btn-backup" onclick="document.getElementById('importFile').click()"><i class="fas fa-upload"></i> Importa</button>
+            <input type="file" id="importFile" accept=".json,application/json" class="hidden" onchange="importData(event)">
+        </div>
+        <div class="student-grid" id="studentGrid"></div>
+    </section>
+
+    <section id="secAgenda" class="hidden">
+        <div class="student-card" style="max-width: 500px; margin: 0 auto; border-top: none;">
+            <h3>Agenda Giornaliera</h3>
+            <input type="date" id="agendaDateSelector" onchange="renderAgenda()">
+            <div id="agendaList"></div>
+        </div>
+    </section>
+
+    <section id="secCalendar" class="hidden">
+        <div class="student-card" style="border-top: none; padding: 10px;">
+            <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <button class="btn btn-outline" onclick="changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+                <h3 id="calTitle" style="margin:0; color: var(--primary);"></h3>
+                <button class="btn btn-outline" onclick="changeMonth(1)"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div class="calendar-grid" id="globalCalendarGrid"></div>
+        </div>
+    </section>
+</div>
+
+<nav class="nav-bottom">
+    <div class="nav-item active" id="navDash" onclick="switchTab('dashboard')"><i class="fas fa-th-large"></i>Alunni</div>
+    <div class="nav-item" id="navAgenda" onclick="switchTab('agenda')"><i class="fas fa-clock"></i>Agenda</div>
+    <div class="nav-item" id="navCal" onclick="switchTab('calendar')"><i class="fas fa-calendar-alt"></i>Mese</div>
+</nav>
+
+<div id="studentModal" class="modal"><div class="modal-content"><h3>Nuovo Alunno</h3><input type="text" id="newStudentName" placeholder="Nome"><input type="text" id="newStudentSchool" placeholder="Scuola"><div style="display:flex; gap:10px;"><button class="btn btn-outline" style="flex:1" onclick="hideModal('studentModal')">Annulla</button><button class="btn" style="flex:1" onclick="saveStudent()">Salva</button></div></div></div>
+<div id="hourModal" class="modal"><div class="modal-content"><h3>Nuova Lezione</h3><select id="hourStudentSelect"></select><input type="date" id="hourDate"><div style="display:flex; gap:10px"><input type="time" id="hourStart" value="08:00"><input type="time" id="hourEnd" value="10:00"></div><button class="btn" style="width:100%" onclick="saveHours()">Salva</button></div></div>
+<div id="dayDetailModal" class="modal"><div class="modal-content"><span onclick="hideModal('dayDetailModal')" style="float:right; cursor:pointer">&times;</span><h3 id="detailDateTitle"></h3><div id="dayLessonsList"></div><button class="btn" style="width:100%; margin-top:15px" onclick="openAddSessionFromCal()">+ Aggiungi</button></div></div>
+
+<script>
+    let students = JSON.parse(localStorage.getItem('pink_v11')) || []; // Mantengo v11 per non perdere i dati appena inseriti
+    let viewDate = new Date();
+    let selectedCalDate = null;
+    const monthNames = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+
+    function init() {
+        document.getElementById('agendaDateSelector').valueAsDate = new Date();
+        refreshAll();
+        renderGlobalCalendar();
+    }
+
+    function switchTab(tab) {
+        document.getElementById('secDashboard').classList.add('hidden');
+        document.getElementById('secAgenda').classList.add('hidden');
+        document.getElementById('secCalendar').classList.add('hidden');
+        const targetId = 'sec' + tab.charAt(0).toUpperCase() + tab.slice(1);
+        document.getElementById(targetId).classList.remove('hidden');
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        document.getElementById('nav' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+        if(tab === 'calendar') setTimeout(() => { renderGlobalCalendar(); }, 10);
+        if(tab === 'agenda') renderAgenda();
+        refreshAll();
+    }
+
+    function refreshAll() {
+        localStorage.setItem('pink_v11', JSON.stringify(students));
+        renderGlobalStats();
+        renderDashboard();
+    }
+
+    function renderGlobalStats() {
+        const m = viewDate.getMonth(), y = viewDate.getFullYear();
+        let total = 0;
+        students.forEach(s => s.sessions.forEach(sess => {
+            const d = new Date(sess.date);
+            if(d.getMonth() === m && d.getFullYear() === y) total += sess.duration;
+        }));
+        document.getElementById('displayTotalHours').innerText = total.toFixed(1) + " h";
+        document.getElementById('displayMonthName').innerText = monthNames[m] + " " + y;
+    }
+
+    function renderDashboard() {
+        const grid = document.getElementById('studentGrid');
+        grid.innerHTML = '';
+        const m = viewDate.getMonth(), y = viewDate.getFullYear();
+        students.forEach(student => {
+            const monthlyHours = student.sessions
+                .filter(s => { const d = new Date(s.date); return d.getMonth() === m && d.getFullYear() === y; })
+                .reduce((acc, s) => acc + s.duration, 0);
+            grid.innerHTML += `
+                <div class="student-card">
+                    <div><div style="font-weight:bold; font-size:1.1rem; color:var(--primary)">${student.name}</div>
+                    <div style="font-size:0.75rem; color:#888; margin-bottom:10px">${student.school || '-'}</div></div>
+                    <div style="background:var(--primary-light); padding:8px; border-radius:12px; text-align:center; margin-bottom:10px">
+                    <span style="font-size:1.2rem; font-weight:900">${monthlyHours.toFixed(1)} h</span></div>
+                    <div style="display:flex; gap:5px"><button class="btn" style="flex:3; font-size:0.8rem" onclick="showModal('hourModal', ${student.id})">+ Ore</button>
+                    <button class="btn-danger" style="flex:1" onclick="deleteStudent(${student.id})"><i class="fas fa-trash-alt"></i></button></div>
+                </div>`;
+        });
+    }
+
+    function renderGlobalCalendar() {
+        const grid = document.getElementById('globalCalendarGrid');
+        const y = viewDate.getFullYear(), m = viewDate.getMonth();
+        document.getElementById('calTitle').innerText = `${monthNames[m]} ${y}`;
+        grid.innerHTML = '';
+        ["L", "M", "M", "G", "V", "S", "D"].forEach(d => grid.innerHTML += `<div style="text-align:center; font-weight:bold; font-size:0.7rem; color:var(--secondary)">${d}</div>`);
+        const startOffset = (new Date(y, m, 1).getDay() || 7) - 1;
+        for(let i=0; i<startOffset; i++) grid.innerHTML += `<div></div>`;
+        
+        for(let d=1; d<=new Date(y, m + 1, 0).getDate(); d++) {
+            const dateStr = `${y}-${String(m+1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            let daily = [];
+            
+            // RACCOLTA DATI PER IL GIORNO
+            students.forEach(st => st.sessions.forEach(se => { 
+                if(se.date === dateStr) {
+                    daily.push({
+                        name: st.name, 
+                        school: st.school || '', 
+                        ...se
+                    });
+                }
+            }));
+            
+            daily.sort((a,b)=>a.start.localeCompare(b.start));
+            
+            const cell = document.createElement('div');
+            cell.className = `cal-cell ${new Date().toISOString().split('T')[0] === dateStr ? 'today' : ''}`;
+            cell.onclick = () => openDayDetail(dateStr, daily);
+            
+            // LOGICA DI VISUALIZZAZIONE RANGE + SCUOLA
+            let htmlContent = `<div style="font-weight:bold; font-size:0.75rem">${d}</div>`;
+            daily.forEach(l => {
+                const schoolTag = l.school ? ` (${l.school})` : '';
+                htmlContent += `<div class="cal-lesson-tag">${l.start}-${l.end} ${l.name}${schoolTag}</div>`;
+            });
+            
+            cell.innerHTML = htmlContent;
+            grid.appendChild(cell);
+        }
+    }
+
+    // Altre funzioni di gestione (Invariate)
+    function changeMonth(dir) { viewDate.setMonth(viewDate.getMonth() + dir); renderGlobalCalendar(); refreshAll(); }
+    function saveStudent() { const n = document.getElementById('newStudentName'), s = document.getElementById('newStudentSchool'); if(!n.value) return; students.push({ id: Date.now(), name: n.value, school: s.value, sessions: [] }); n.value=''; s.value=''; hideModal('studentModal'); refreshAll(); }
+    function saveHours() { const id = parseInt(document.getElementById('hourStudentSelect').value), d = document.getElementById('hourDate').value, s = document.getElementById('hourStart').value, e = document.getElementById('hourEnd').value; const dur = (new Date(`2000-01-01T${e}`) - new Date(`2000-01-01T${s}`)) / 3600000; if(dur <= 0) return alert("Orario non valido"); students.find(x => x.id === id).sessions.push({ id: Date.now(), date: d, start: s, end: e, duration: dur }); hideModal('hourModal'); refreshAll(); renderGlobalCalendar(); }
+    function deleteStudent(id) { if(confirm("Eliminare alunno?")) { students = students.filter(s => s.id !== id); refreshAll(); renderGlobalCalendar(); } }
+    function showModal(id, stId = null) { document.getElementById(id).style.display = 'flex'; if(id === 'hourModal') { document.getElementById('hourStudentSelect').innerHTML = students.map(s => `<option value="${s.id}" ${s.id==stId?'selected':''}>${s.name}</option>`).join(''); document.getElementById('hourDate').value = selectedCalDate || new Date().toISOString().split('T')[0]; } }
+    function hideModal(id) { document.getElementById(id).style.display = 'none'; }
+    function openAddSessionFromCal() { hideModal('dayDetailModal'); showModal('hourModal'); }
+    function openDayDetail(date, lessons) { selectedCalDate = date; document.getElementById('detailDateTitle').innerText = new Date(date).toLocaleDateString('it-IT', { day:'numeric', month:'long' }); const list = document.getElementById('dayLessonsList'); list.innerHTML = lessons.length ? lessons.map(l => `<div style="padding:8px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center"><span><b>${l.start}-${l.end}</b> ${l.name}</span><button class="btn-danger" onclick="deleteSession(${l.id})"><i class="fas fa-trash"></i></button></div>`).join('') : "Nessuna lezione"; showModal('dayDetailModal'); }
+    function deleteSession(id) { if(confirm("Eliminare?")) { students.forEach(s => s.sessions = s.sessions.filter(x => x.id !== id)); hideModal('dayDetailModal'); refreshAll(); renderGlobalCalendar(); } }
+    function renderAgenda() { const list = document.getElementById('agendaList'), d = document.getElementById('agendaDateSelector').value; let f = []; students.forEach(st => st.sessions.forEach(se => { if(se.date === d) f.push({...se, name: st.name}); })); list.innerHTML = f.length ? f.sort((a,b)=>a.start.localeCompare(b.start)).map(x => `<div style="padding:10px 0; border-bottom:1px solid #eee"><b>${x.start}-${x.end}</b> ${x.name}</div>`).join('') : "Libero"; }
+    function exportData() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(students)); const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", "backup_planner.json"); dl.click(); }
+    function importData(e) { const reader = new FileReader(); reader.onload = (ev) => { if(confirm("Sovrascrivere?")) { students = JSON.parse(ev.target.result); refreshAll(); renderGlobalCalendar(); } }; reader.readAsText(e.target.files[0]); }
+
+    init();
+</script>
+</body>
+</html>
